@@ -8,6 +8,7 @@ on:
 
 env:
   EAS_PROJECT_ID: '@open-game-system/opengame-app'
+  APP_ID: 'org.opengame.app'
 
 jobs:
   build:
@@ -44,6 +45,10 @@ jobs:
           echo "⚙️ Configuring EAS project..."
           eas init --id ${{ env.EAS_PROJECT_ID }}
           echo "✅ EAS project configured"
+          
+          echo "📱 Configuring app ID..."
+          eas build:configure --platform all
+          echo "✅ App ID configured"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
@@ -52,6 +57,7 @@ jobs:
           echo "🏗️ Starting EAS build..."
           echo "📱 Building for platforms: all"
           echo "🔧 Using profile: preview"
+          echo "🆔 Using app ID: ${{ env.APP_ID }}"
           eas build --profile preview --platform all --non-interactive
           echo "✅ Build completed successfully"
         env:
