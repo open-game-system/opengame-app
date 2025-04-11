@@ -19,20 +19,33 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: npm install
-        
+        run: |
+          echo "📦 Installing project dependencies..."
+          npm install
+          echo "✅ Dependencies installed successfully"
+          
       - name: Install EAS CLI
         run: |
+          echo "🔧 Installing EAS CLI..."
           npm install -g eas-cli
+          echo "📊 EAS CLI version:"
           eas --version
           
       - name: Login to EAS
-        run: eas login --non-interactive
+        run: |
+          echo "🔑 Logging into EAS..."
+          eas login --non-interactive
+          echo "✅ Successfully logged into EAS"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
       - name: Build with EAS
-        run: eas build --profile preview --platform all --non-interactive
+        run: |
+          echo "🏗️ Starting EAS build..."
+          echo "📱 Building for platforms: all"
+          echo "🔧 Using profile: preview"
+          eas build --profile preview --platform all --non-interactive
+          echo "✅ Build completed successfully"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
@@ -40,6 +53,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            console.log('📝 Preparing build comment...');
             const build = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -50,12 +64,17 @@ jobs:
               per_page: 1
             });
             
+            console.log('🔍 Found build run:', build.data.workflow_runs[0].id);
             const runId = build.data.workflow_runs[0].id;
+            
+            console.log('📦 Fetching build artifacts...');
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
               owner: context.repo.owner,
               repo: context.repo.repo,
               run_id: runId
             });
+            
+            console.log('📦 Found artifacts:', artifacts.data.artifacts.map(a => a.name).join(', '));
             
             const comment = `📱 Internal Test Build Available!\n\n` +
               `This build is ready for internal testing. It's a standalone app (not Expo Go) that functions like a production app.\n\n` +
@@ -85,6 +104,7 @@ jobs:
               `2. Find the developer certificate\n` +
               `3. Tap "Trust"`;
             
+            console.log('💬 Posting build comment...');
             if (context.eventName === 'pull_request') {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -92,6 +112,7 @@ jobs:
                 issue_number: context.issue.number,
                 body: comment
               });
+              console.log('✅ Comment posted to PR');
             } else {
               await github.rest.repos.createCommitComment({
                 owner: context.repo.owner,
@@ -99,4 +120,5 @@ jobs:
                 commit_sha: context.sha,
                 body: comment
               });
+              console.log('✅ Comment posted to commit');
             } 
