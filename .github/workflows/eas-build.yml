@@ -1,0 +1,102 @@
+name: EAS Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Install EAS CLI
+        run: |
+          npm install -g eas-cli
+          eas --version
+          
+      - name: Login to EAS
+        run: eas login --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          
+      - name: Build with EAS
+        run: eas build --profile preview --platform all --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          
+      - name: Post build comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const build = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'eas-build.yml',
+              branch: context.ref,
+              event: context.eventName,
+              status: 'completed',
+              per_page: 1
+            });
+            
+            const runId = build.data.workflow_runs[0].id;
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId
+            });
+            
+            const comment = `📱 Internal Test Build Available!\n\n` +
+              `This build is ready for internal testing. It's a standalone app (not Expo Go) that functions like a production app.\n\n` +
+              `View build details: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}\n\n` +
+              `Download links:\n` +
+              artifacts.data.artifacts.map(artifact => `- ${artifact.name}`).join('\n') + '\n\n' +
+              `📱 Installation Instructions:\n\n` +
+              `iOS Installation:\n` +
+              `1. Download the .ipa file from the artifacts above\n` +
+              `2. Connect your iOS device to your Mac\n` +
+              `3. Open Apple Configurator 2\n` +
+              `4. Click on your device in the sidebar\n` +
+              `5. Drag and drop the .ipa file onto the device\n` +
+              `6. Follow the prompts to install\n\n` +
+              `Alternative iOS Installation (TestFlight):\n` +
+              `1. Open the TestFlight app on your iOS device\n` +
+              `2. Enter the TestFlight invitation code\n` +
+              `3. Follow the prompts to install\n\n` +
+              `Android Installation:\n` +
+              `1. Download the .apk file from the artifacts above\n` +
+              `2. On your Android device, go to Settings > Security\n` +
+              `3. Enable "Install from Unknown Sources" or "Install Unknown Apps"\n` +
+              `4. Open the downloaded .apk file\n` +
+              `5. Tap "Install" and follow the prompts\n\n` +
+              `⚠️ Note: For iOS, you'll need to trust the developer certificate:\n` +
+              `1. Go to Settings > General > Device Management\n` +
+              `2. Find the developer certificate\n` +
+              `3. Tap "Trust"`;
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            } else {
+              await github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: comment
+              });
+            } 

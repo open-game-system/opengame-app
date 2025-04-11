@@ -9,13 +9,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "org.opengame.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "org.opengame.app"
     },
     "web": {
       "bundler": "metro",
@@ -24,6 +26,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "react-native-google-cast",
+        {
+          "receiverAppId": "807AD5E9",
+          "iosStartDiscoveryAfterFirstTapOnCastButton": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
