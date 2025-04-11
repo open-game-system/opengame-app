@@ -36,6 +36,14 @@ jobs:
           echo "📊 EAS CLI version:"
           eas --version
           
+      - name: Configure EAS Project
+        run: |
+          echo "⚙️ Configuring EAS project..."
+          eas init --id ${{ secrets.EAS_PROJECT_ID }}
+          echo "✅ EAS project configured"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          
       - name: Build with EAS
         run: |
           echo "🏗️ Starting EAS build..."
