@@ -39,7 +39,7 @@ jobs:
       - name: Login to EAS
         run: |
           echo "🔑 Logging into EAS..."
-          eas login --non-interactive
+          eas login
           echo "✅ Successfully logged into EAS"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
