@@ -85,8 +85,15 @@ const castKitStore = createStore<CastKitState, CastKitEvents>({
 
 // Add comprehensive store logging
 castKitStore.subscribe((state) => {
+  const castStateString = 
+    state.castState === CastState.NO_DEVICES_AVAILABLE ? 'NO_DEVICES_AVAILABLE' :
+    state.castState === CastState.NOT_CONNECTED ? 'NOT_CONNECTED' :
+    state.castState === CastState.CONNECTING ? 'CONNECTING' :
+    state.castState === CastState.CONNECTED ? 'CONNECTED' :
+    CastState[state.castState] ?? 'UNKNOWN';
+
   console.log('[CastKit Store] State Updated:', {
-    castState: CastState[state.castState] || state.castState, // Convert enum value to string name, fallback to raw value
+    castState: castStateString,
     devicesAvailable: state.devicesAvailable,
     sessionState: state.sessionState,
     timestamp: new Date().toISOString(),
