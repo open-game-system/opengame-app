@@ -16,18 +16,23 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'pnpm'
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
           
       - name: Install dependencies
         run: |
           echo "📦 Installing project dependencies..."
-          npm install
+          pnpm install
           echo "✅ Dependencies installed successfully"
           
       - name: Install EAS CLI
         run: |
           echo "🔧 Installing EAS CLI..."
-          npm install -g eas-cli
+          pnpm add -g eas-cli
           echo "📊 EAS CLI version:"
           eas --version
           
