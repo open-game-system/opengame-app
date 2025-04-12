@@ -54,9 +54,9 @@ jobs:
       - name: Build with EAS
         run: |
           echo "🏗️ Starting EAS build..."
-          echo "📱 Building for platforms: all"
+          echo "📱 Building for platforms: ios"
           echo "🔧 Using profile: preview"
-          eas build --profile preview --platform all --non-interactive --auto-submit
+          eas build --profile preview --platform ios --non-interactive --auto-submit
           echo "✅ Build completed successfully"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

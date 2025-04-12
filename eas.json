@@ -32,6 +32,7 @@
       },
       "android": {
         "buildType": "apk",
+        "credentialsSource": "remote",
         "cache": {
           "key": "preview-android-{{allShas}}"
         }
