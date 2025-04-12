@@ -51,6 +51,17 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
+      - name: Configure Android Keystore
+        run: |
+          echo "🔑 Configuring Android keystore..."
+          if [ -f "android/app/keystore.jks" ]; then
+            echo "✅ Using existing keystore"
+          else
+            echo "🔑 Generating new keystore..."
+            keytool -genkey -v -keystore android/app/keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload -storepass ${{ secrets.ANDROID_KEYSTORE_PASSWORD }} -keypass ${{ secrets.ANDROID_KEY_PASSWORD }} -dname "CN=OpenGame, OU=OpenGame, O=OpenGame, L=Unknown, ST=Unknown, C=US"
+            echo "✅ Keystore generated"
+          fi
+          
       - name: Build with EAS
         run: |
           echo "🏗️ Starting EAS build..."
@@ -60,6 +71,8 @@ jobs:
           echo "✅ Build completed successfully"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           
       - name: Post build comment
         uses: actions/github-script@v6
