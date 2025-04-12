@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  EAS_PROJECT_ID: 'c0d03bd6-9398-4eba-94f6-69fbd071d599'
+  EAS_PROJECT_ID: 'c95fff84-d8a0-49dd-a2f4-000b14526ca5'
 
 jobs:
   build:
