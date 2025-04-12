@@ -56,7 +56,7 @@ jobs:
           echo "🏗️ Starting EAS build..."
           echo "📱 Building for platforms: ios"
           echo "🔧 Using profile: preview"
-          eas build --profile preview --platform ios --non-interactive --auto-submit
+          eas build --profile preview --platform ios --non-interactive
           echo "✅ Build completed successfully"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
