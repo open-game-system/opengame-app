@@ -3,12 +3,11 @@ import {
   createNativeBridgeContext,
   createNativeBridge,
   createStore,
-  Store,
   NativeBridge,
 } from "@open-game-system/app-bridge-react-native";
-import { Producer, State, Event } from "@open-game-system/app-bridge-types";
-import React, { useEffect, useMemo } from "react";
-import { Platform, StyleSheet, Text, View, Button, NativeModules, StatusBar as RNStatusBar } from "react-native";
+import type { Producer, State } from "@open-game-system/app-bridge-types";
+import React, { useEffect, useMemo, useState } from "react";
+import { Platform, StyleSheet, Text, View, StatusBar as RNStatusBar } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import GoogleCast, {
   CastButton,
@@ -16,6 +15,10 @@ import GoogleCast, {
   CastState,
   useDevices,
 } from "react-native-google-cast";
+import {
+  consumePendingGameUrl,
+  subscribeToGameUrl,
+} from "../services/game-url-store";
 
 interface CastKitState extends State {
   // Connection & Device Discovery
@@ -76,76 +79,37 @@ const castKitStore = createStore<CastKitState, CastKitEvents>({
   },
   producer: castKitProducer,
   on: {
-    SHOW_CAST_PICKER: (event: Extract<CastKitEvents, { type: 'SHOW_CAST_PICKER' }>, store: Store<CastKitState, CastKitEvents>) => {
+    SHOW_CAST_PICKER: (event: Extract<CastKitEvents, { type: 'SHOW_CAST_PICKER' }>) => {
       console.log(`[Native Store Listener] Received ${event.type}`);
       GoogleCast.showCastDialog();
     },
   }
 });
 
-// Add comprehensive store logging
-castKitStore.subscribe((state) => {
-  const castStateString = 
-    state.castState === CastState.NO_DEVICES_AVAILABLE ? 'NO_DEVICES_AVAILABLE' :
-    state.castState === CastState.NOT_CONNECTED ? 'NOT_CONNECTED' :
-    state.castState === CastState.CONNECTING ? 'CONNECTING' :
-    state.castState === CastState.CONNECTED ? 'CONNECTED' :
-    CastState[state.castState] ?? 'UNKNOWN';
-
-  console.log('[CastKit Store] State Updated:', {
-    castState: castStateString,
-    devicesAvailable: state.devicesAvailable,
-    sessionState: state.sessionState,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// Log all dispatched events
-const originalDispatch = castKitStore.dispatch;
-castKitStore.dispatch = (event: CastKitEvents) => {
-  console.log('[CastKit Store] Dispatching Event:', {
-    type: event.type,
-    payload: 'payload' in event ? event.payload : undefined,
-    timestamp: new Date().toISOString(),
-  });
-  return originalDispatch(event);
-};
-
 bridge.setStore("castKit", castKitStore);
-
-// --- Add state logging --- 
-useEffect(() => {
-  console.log("[Native Store Log] Initial State:", castKitStore.getSnapshot());
-  const unsubscribe = castKitStore.subscribe((newState: CastKitState) => {
-    console.log("[Native Store Log] State Updated:", JSON.stringify(newState, null, 2));
-  });
-
-  // Cleanup subscription on unmount
-  return () => {
-    console.log("[Native Store Log] Unsubscribing logger.");
-    unsubscribe();
-  };
-}, []); // Empty dependency array means this runs once on mount
 
 // Create context
 const BridgeContext = createNativeBridgeContext<AppStores>();
 const CastContext = BridgeContext.createNativeStoreContext("castKit");
+
+function getCastStateLabel(state: CastState): string {
+  switch (state) {
+    case CastState.NO_DEVICES_AVAILABLE: return 'NO_DEVICES_AVAILABLE';
+    case CastState.NOT_CONNECTED: return 'NOT_CONNECTED';
+    case CastState.CONNECTING: return 'CONNECTING';
+    case CastState.CONNECTED: return 'CONNECTED';
+    default: return CastState[state] ?? 'UNKNOWN';
+  }
+}
 
 const CastStatus = () => {
   const currentCastState = CastContext.useSelector((state) => state.castState);
   const devicesAvailable = CastContext.useSelector((state) => state.devicesAvailable);
   const sessionState = CastContext.useSelector((state) => state.sessionState);
 
-  const castStateString = 
-    currentCastState === CastState.NO_DEVICES_AVAILABLE ? 'NO_DEVICES_AVAILABLE' :
-    currentCastState === CastState.NOT_CONNECTED ? 'NOT_CONNECTED' :
-    currentCastState === CastState.CONNECTING ? 'CONNECTING' :
-    currentCastState === CastState.CONNECTED ? 'CONNECTED' :
-    CastState[currentCastState] ?? 'UNKNOWN';
-
   return (
     <View style={styles.castStatusContainer}>
-      <Text style={styles.castStatusText}>Cast State: {castStateString}</Text>
+      <Text style={styles.castStatusText}>Cast State: {getCastStateLabel(currentCastState)}</Text>
       <Text style={styles.castStatusText}>Devices Available: {devicesAvailable ? 'Yes' : 'No'}</Text>
       {sessionState && (
         <Text style={styles.castStatusText}>Session: {sessionState}</Text>
@@ -155,73 +119,74 @@ const CastStatus = () => {
 };
 
 export default function Index() {
-  // --- Hooks for native state updates --- 
+  // --- Hooks for native state updates ---
   const castState = useCastState();
   const devices = useDevices();
 
-  // Show introductory overlay on first mount
-  useEffect(() => {
-    GoogleCast.showIntroductoryOverlay().then(shown => {
-      if (shown) {
-        console.log("[Native Hook Log] Introductory overlay shown");
-      } else {
-        console.log("[Native Hook Log] Introductory overlay was already shown before");
-      }
-    }).catch(error => {
-      console.error("[Native Hook Log] Failed to show introductory overlay:", error);
-    });
-  }, []);
-
-  const webviewSource = useMemo(() => Platform.select({
+  // Track the current URL to load in the WebView
+  const defaultSource = useMemo(() => Platform.select({
     ios: { uri: "http://localhost:8787" }, // Use localhost for iOS simulator
     android: { uri: "http://10.0.2.2:8787" }, // Use 10.0.2.2 for Android emulator
     default: { uri: "http://localhost:8787" } // Default fallback
   }), []);
 
-  // --- useEffect hooks for dispatching native events TO the store ---
+  const [webviewSource, setWebviewSource] = useState(defaultSource);
+
+  // Handle game URLs from deep links and notifications
   useEffect(() => {
-    console.log("[Native Hook Log] useCastState updated:", castState);
-    // Use != null to handle potential 0 state values correctly
-    if (castState != null) { 
-      console.log("[Native Hook Log] Dispatching CAST_STATE_CHANGED:", castState);
+    // Check for a pending game URL (e.g., from a cold start deep link)
+    const pending = consumePendingGameUrl();
+    if (pending) {
+      console.log("[Index] Loading pending game URL:", pending);
+      setWebviewSource({ uri: pending });
+    }
+
+    // Subscribe to future game URL changes (warm start deep links, notification taps)
+    const unsubscribe = subscribeToGameUrl((gameUrl) => {
+      console.log("[Index] Loading game URL from deep link:", gameUrl);
+      setWebviewSource({ uri: gameUrl });
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Show introductory overlay on first mount
+  useEffect(() => {
+    GoogleCast.showIntroductoryOverlay().catch(() => {});
+  }, []);
+
+  // Sync native cast state into bridge store
+  useEffect(() => {
+    if (castState != null) {
       castKitStore.dispatch({ type: 'CAST_STATE_CHANGED', payload: castState });
     }
   }, [castState]);
 
+  // Sync device discovery into bridge store
   useEffect(() => {
-    console.log("[Native Hook Log] useDevices updated:", devices);
     const devicesAvailable = devices.length > 0;
-    // Only dispatch if the value actually changed to avoid unnecessary logs/renders
     if (devicesAvailable !== castKitStore.getSnapshot().devicesAvailable) {
-      console.log("[Native Hook Log] Dispatching DEVICES_DISCOVERED:", devicesAvailable);
       castKitStore.dispatch({ type: 'DEVICES_DISCOVERED', payload: devicesAvailable });
     }
   }, [devices]);
 
-  // Add event listeners for session state changes
+  // Subscribe to session lifecycle events
   useEffect(() => {
     const sessionManager = GoogleCast.sessionManager;
 
-    const sessionStartedSubscription = sessionManager.onSessionStarted(() => {
-      console.log("[Native Hook Log] Session Started Event");
-      castKitStore.dispatch({ type: 'SESSION_STARTED' });
-    });
+    const subs = [
+      sessionManager.onSessionStarted(() => {
+        castKitStore.dispatch({ type: 'SESSION_STARTED' });
+      }),
+      sessionManager.onSessionEnded(() => {
+        castKitStore.dispatch({ type: 'SESSION_ENDED' });
+      }),
+      sessionManager.onSessionResumed(() => {
+        castKitStore.dispatch({ type: 'SESSION_RESUMED' });
+      }),
+    ];
 
-    const sessionEndedSubscription = sessionManager.onSessionEnded(() => {
-      console.log("[Native Hook Log] Session Ended Event");
-      castKitStore.dispatch({ type: 'SESSION_ENDED' });
-    });
-
-    const sessionResumedSubscription = sessionManager.onSessionResumed(() => {
-      console.log("[Native Hook Log] Session Resumed Event");
-      castKitStore.dispatch({ type: 'SESSION_RESUMED' });
-    });
-
-    return () => {
-      sessionStartedSubscription.remove();
-      sessionEndedSubscription.remove();
-      sessionResumedSubscription.remove();
-    };
+    return () => subs.forEach((s) => s.remove());
   }, []);
 
   return (
