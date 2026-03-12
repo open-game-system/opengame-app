@@ -158,9 +158,9 @@ describe("deep-links", () => {
       const mockSubscription = { remove: jest.fn() };
       let capturedHandler: (event: { url: string }) => void;
 
-      mockAddEventListener.mockImplementation((_event, handler) => {
-        capturedHandler = handler as any;
-        return mockSubscription;
+      mockAddEventListener.mockImplementation((_event: string, handler: unknown) => {
+        capturedHandler = handler as (event: { url: string }) => void;
+        return mockSubscription as any;
       });
 
       const callback = jest.fn();
@@ -184,9 +184,9 @@ describe("deep-links", () => {
     it("does not call callback when incoming URL is not a game link", () => {
       let capturedHandler: (event: { url: string }) => void;
 
-      mockAddEventListener.mockImplementation((_event, handler) => {
-        capturedHandler = handler as any;
-        return { remove: jest.fn() };
+      mockAddEventListener.mockImplementation((_event: string, handler: unknown) => {
+        capturedHandler = handler as (event: { url: string }) => void;
+        return { remove: jest.fn() } as any;
       });
 
       const callback = jest.fn();
