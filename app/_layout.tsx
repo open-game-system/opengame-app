@@ -6,6 +6,11 @@ import {
   addPushTokenListener,
   getGameUrlFromNotification,
 } from "../services/notifications";
+import {
+  getInitialGameUrl,
+  addDeepLinkListener,
+} from "../services/deep-links";
+import { setGameUrl } from "../services/game-url-store";
 
 export default function RootLayout() {
   const [ogsDeviceId, setOgsDeviceId] = useState<string | null>(null);
@@ -20,6 +25,25 @@ export default function RootLayout() {
     });
   }, []);
 
+  // Handle deep links (Universal Links and custom scheme)
+  useEffect(() => {
+    // Check if the app was launched with a URL (cold start)
+    getInitialGameUrl().then((gameUrl) => {
+      if (gameUrl) {
+        console.log("[Layout] App launched with game URL:", gameUrl);
+        setGameUrl(gameUrl);
+      }
+    });
+
+    // Listen for incoming URLs while the app is running (warm start)
+    const sub = addDeepLinkListener((gameUrl) => {
+      console.log("[Layout] Deep link received, opening URL:", gameUrl);
+      setGameUrl(gameUrl);
+    });
+
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     if (!ogsDeviceId) return;
 
@@ -32,8 +56,7 @@ export default function RootLayout() {
         const url = getGameUrlFromNotification(response.notification);
         if (url) {
           console.log("[Layout] Notification tapped, opening URL:", url);
-          // TODO: Navigate to the game URL in the WebView
-          // This will be wired up when we have proper navigation to a WebView screen
+          setGameUrl(url);
         }
       });
 

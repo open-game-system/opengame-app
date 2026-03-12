@@ -7,7 +7,7 @@ import {
   NativeBridge,
 } from "@open-game-system/app-bridge-react-native";
 import { Producer, State, Event } from "@open-game-system/app-bridge-types";
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, View, Button, NativeModules, StatusBar as RNStatusBar } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import GoogleCast, {
@@ -16,6 +16,10 @@ import GoogleCast, {
   CastState,
   useDevices,
 } from "react-native-google-cast";
+import {
+  consumePendingGameUrl,
+  subscribeToGameUrl,
+} from "../services/game-url-store";
 
 interface CastKitState extends State {
   // Connection & Device Discovery
@@ -155,9 +159,36 @@ const CastStatus = () => {
 };
 
 export default function Index() {
-  // --- Hooks for native state updates --- 
+  // --- Hooks for native state updates ---
   const castState = useCastState();
   const devices = useDevices();
+
+  // Track the current URL to load in the WebView
+  const defaultSource = useMemo(() => Platform.select({
+    ios: { uri: "http://localhost:8787" }, // Use localhost for iOS simulator
+    android: { uri: "http://10.0.2.2:8787" }, // Use 10.0.2.2 for Android emulator
+    default: { uri: "http://localhost:8787" } // Default fallback
+  }), []);
+
+  const [webviewSource, setWebviewSource] = useState(defaultSource);
+
+  // Handle game URLs from deep links and notifications
+  useEffect(() => {
+    // Check for a pending game URL (e.g., from a cold start deep link)
+    const pending = consumePendingGameUrl();
+    if (pending) {
+      console.log("[Index] Loading pending game URL:", pending);
+      setWebviewSource({ uri: pending });
+    }
+
+    // Subscribe to future game URL changes (warm start deep links, notification taps)
+    const unsubscribe = subscribeToGameUrl((gameUrl) => {
+      console.log("[Index] Loading game URL from deep link:", gameUrl);
+      setWebviewSource({ uri: gameUrl });
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Show introductory overlay on first mount
   useEffect(() => {
@@ -171,12 +202,6 @@ export default function Index() {
       console.error("[Native Hook Log] Failed to show introductory overlay:", error);
     });
   }, []);
-
-  const webviewSource = useMemo(() => Platform.select({
-    ios: { uri: "http://localhost:8787" }, // Use localhost for iOS simulator
-    android: { uri: "http://10.0.2.2:8787" }, // Use 10.0.2.2 for Android emulator
-    default: { uri: "http://localhost:8787" } // Default fallback
-  }), []);
 
   // --- useEffect hooks for dispatching native events TO the store ---
   useEffect(() => {
