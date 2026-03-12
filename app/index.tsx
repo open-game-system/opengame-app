@@ -5,7 +5,7 @@ import {
   createStore,
   NativeBridge,
 } from "@open-game-system/app-bridge-react-native";
-import { Producer, State } from "@open-game-system/app-bridge-types";
+import type { Producer, State } from "@open-game-system/app-bridge-types";
 import React, { useEffect, useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, View, StatusBar as RNStatusBar } from "react-native";
 import { StatusBar } from "expo-status-bar";
