@@ -10,10 +10,21 @@
     "prebuild": "expo prebuild --clean",
     "web": "expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "test:ci": "jest --ci --coverage --coverageReporters=json-summary --coverageReporters=text",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test:mutate": "npx stryker run"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!(.pnpm|((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@open-game-system/.*))"
+    ],
+    "collectCoverageFrom": [
+      "services/**/*.{ts,tsx}",
+      "app/**/*.{ts,tsx}",
+      "!**/*.d.ts"
+    ]
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
@@ -51,6 +62,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@stryker-mutator/core": "^9.6.0",
+    "@stryker-mutator/jest-runner": "^9.6.0",
+    "@stryker-mutator/typescript-checker": "^9.6.0",
     "@types/jest": "^29.5.12",
     "@types/react": "~18.3.12",
     "@types/react-test-renderer": "^18.3.0",
